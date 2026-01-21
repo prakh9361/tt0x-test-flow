@@ -24,8 +24,8 @@ module tt_um_example (
 	
   always(@ posedge clk) begin
   	d <= ui_in;
-	uo_out <= d;
   end
+  assign uo_out = d;
   // List all unused inputs to prevent warnings
   wire _unused = &{ena, rst_n, 1'b0};
 
