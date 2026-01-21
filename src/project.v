@@ -22,9 +22,9 @@ module tt_um_example (
   assign uio_oe  = 0;
   reg [7:0] d;
 	
-  always(@ posedge clk) begin
-  	d <= ui_in;
-  end
+	always @(posedge clk) begin
+  		d <= ui_in;
+  	end
   assign uo_out = d;
   // List all unused inputs to prevent warnings
   wire _unused = &{ena, rst_n, 1'b0};
