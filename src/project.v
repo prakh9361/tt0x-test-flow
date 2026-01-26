@@ -20,10 +20,10 @@ module tt_um_example (
   //assign uo_out  = ~ui_in;   // Example: ou_out is the inverse of ui_in
   assign uio_out = 0;
   assign uio_oe  = 0;
-  reg [7:0] d;
+	reg [55:0] d;
 	
 	always @(posedge clk) begin
-  		d <= ui_in;
+		d <= 7{ui_in};
   	end
   assign uo_out = d;
   // List all unused inputs to prevent warnings
