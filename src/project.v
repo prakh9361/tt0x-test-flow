@@ -23,7 +23,7 @@ module tt_um_example (
 	reg [55:0] d;
 	
 	always @(posedge clk) begin
-		d <= 7{ui_in};
+		d <= {7{ui_in}};
   	end
   assign uo_out = d;
   // List all unused inputs to prevent warnings
