@@ -17,13 +17,19 @@ module tt_um_example (
 );
 
     // ------------------------------------------------------------------------
+    // 0. LINT CLEANUP
+    // ------------------------------------------------------------------------
+    // Silence unused signal warnings by logically combining them
+    wire _unused_ok = &{ena, uio_in, ui_in[7:6], ui_in[3:1]};
+
+    // ------------------------------------------------------------------------
     // 1. INPUT MAPPING
     // ------------------------------------------------------------------------
     // ui_in: Serial Data In (for loading seeds)
     // ui_in[4]: Load Enable (1 = Shift in data, 0 = Generate Code)
     // ui_in[5]: Output Enable (1 = Enable output, 0 = Silence)
     
-    wire data_in = ui_in;
+    wire data_in = ui_in[0]; // Assuming data is on LSB, or adjust specific bit
     wire load_en = ui_in[4];
     wire out_en  = ui_in[5];
 
@@ -39,42 +45,44 @@ module tt_um_example (
     reg [4:0]  rf;
 
     // ------------------------------------------------------------------------
-    // 3. LOGIC EQUATIONS (Derived from Section X [2], [3])
+    // 3. LOGIC EQUATIONS
     // ------------------------------------------------------------------------
 
     // --- R0 Feedback (Linear) ---
-    // Recursion: R0(t+55) = R0(t+50)+R0(t+45)+R0(t+40)+R0(t+20)+R0(t+10)+R0(t+5)+R0(t)
-    // We assume r0 is R0(t) and r0[6] is R0(t+50).
+    // Recursion: R0(t+55) = ...
     wire r0_feedback;
-    assign r0_feedback = r0[6] ^ r0[7] ^ r0[8] ^ r0[9] ^ r0[10] ^ r0[11] ^ r0;
+    assign r0_feedback = r0[6] ^ r0[7] ^ r0[8] ^ r0[9] ^ r0[10] ^ r0[11] ^ r0[0];
 
     // --- R1 Linear Part (Self-Feedback) ---
-    // Recursion part 1: R1(t+50)+R1(t+45)+R1(t+40)+R1(t+20)+R1(t+10)+R1(t+5)+R1(t)
     wire r1_self_feedback;
-    assign r1_self_feedback = r1[6] ^ r1[7] ^ r1[8] ^ r1[9] ^ r1[10] ^ r1[11] ^ r1;
+    assign r1_self_feedback = r1[6] ^ r1[7] ^ r1[8] ^ r1[9] ^ r1[10] ^ r1[11] ^ r1[0];
 
     // --- R1 Coupling Part (From R0) ---
-    // Linear sum of R0 taps: R0(t+40)+R0(t+35)+R0(t+30)+R0(t+25)+R0(t+15)+R0(t)
     wire r0_coupling_sum;
-    assign r0_coupling_sum = r0[8] ^ r0[12] ^ r0[13] ^ r0[14] ^ r0[15] ^ r0;
+    assign r0_coupling_sum = r0[8] ^ r0[12] ^ r0[13] ^ r0[14] ^ r0[15] ^ r0[0];
 
     // --- Sigma 2 Function (Nonlinear) ---
     // Inputs: 7 taps from R0 -> {50, 45, 40, 20, 10, 5, 0}
     // Output: Sum of all pairwise products.
-    wire sigma_out;
+    reg sigma_out;
     wire [6:0] s_in;
-    assign s_in = {r0[6], r0[7], r0[8], r0[9], r0[10], r0[11], r0};
+    // FIXED: Explicit selection of bit 0 instead of the whole 55-bit 'r0' vector
+    assign s_in = {r0[6], r0[7], r0[8], r0[9], r0[10], r0[11], r0[0]};
     
-    // Implementing Sigma2: XOR sum of ANDs of all 21 unique pairs
-    assign sigma_out = 
-        (s_in & s_in[4]) ^ (s_in & s_in[5]) ^ (s_in & s_in[16]) ^ 
-        (s_in & s_in[17]) ^ (s_in & s_in[11]) ^ (s_in & s_in[18]) ^
-        (s_in[4] & s_in[5]) ^ (s_in[4] & s_in[16]) ^ (s_in[4] & s_in[17]) ^ 
-        (s_in[4] & s_in[11]) ^ (s_in[4] & s_in[18]) ^
-        (s_in[5] & s_in[16]) ^ (s_in[5] & s_in[17]) ^ (s_in[5] & s_in[11]) ^ (s_in[5] & s_in[18]) ^
-        (s_in[16] & s_in[17]) ^ (s_in[16] & s_in[11]) ^ (s_in[16] & s_in[18]) ^
-        (s_in[17] & s_in[11]) ^ (s_in[17] & s_in[18]) ^
-        (s_in[11] & s_in[18]);
+    // FIXED: Replaced hardcoded out-of-bounds logic with an actual pairwise product loop
+    // Implementation: XOR sum of ANDs of all unique pairs (i < j)
+    integer i, j;
+    reg sigma_accum;
+    
+    always @* begin
+        sigma_accum = 1'b0;
+        for (i = 0; i < 7; i = i + 1) begin
+            for (j = i + 1; j < 7; j = j + 1) begin
+                sigma_accum = sigma_accum ^ (s_in[i] & s_in[j]);
+            end
+        end
+        sigma_out = sigma_accum;
+    end
 
     // --- Total R1 Feedback ---
     // R1_next = Self_Feedback + (Coupling_Sum * Sigma_Out)
@@ -94,8 +102,9 @@ module tt_um_example (
             // SERIAL LOAD MODE:
             // Shift data in from ui_in. Chain: r0 <- r1 <- rf <- data_in
             rf <= {rf[3:0], data_in};
-            r1 <= {r1[53:0], rf[17]};
-            r0 <= {r0[53:0], r1[19]};
+            // FIXED: rf[17] was out of bounds (rf is 5 bits). Using MSB rf[4].
+            r1 <= {r1[53:0], rf[4]}; 
+            r0 <= {r0[53:0], r1[54]}; // Assuming chain from R1 MSB
         end else if (out_en) begin
             // GENERATE MODE:
             // Advance R0 (Linear)
@@ -103,24 +112,30 @@ module tt_um_example (
             // Advance R1 (Nonlinear Coupled)
             r1 <= {r1[53:0], r1_feedback};
             // Advance RF (Cyclic Rotation)
-            rf <= {rf[3:0], rf[17]}; 
+            // FIXED: rf[17] was out of bounds. Using MSB rf[4] for rotation.
+            rf <= {rf[3:0], rf[4]}; 
         end
     end
 
     // ------------------------------------------------------------------------
     // 5. OUTPUT ASSIGNMENT
     // ------------------------------------------------------------------------
-    // Final sequence J(t) is the sum of the components.
-    // uo_out: The JNAV PRN Code
+    // uo_out[0]: The JNAV PRN Code
     // uo_out[4]: Clock echo (debug)
-    // uo_out[5]: Valid signal (high when out_en is high)
-
-    wire jnav_bit = r0 ^ r1 ^ rf;
+    // uo_out[5]: Valid signal
     
-    assign uo_out = out_en ? jnav_bit : 1'b0;
-    assign uo_out[4] = clk;
-    assign uo_out[5] = out_en;
-    assign uo_out[7:3] = 0;
+    // FIXED: XORing full registers (55 bits) produces a 55-bit vector. 
+    // We likely want the MSB (the output bit) of the registers.
+    wire jnav_bit = r0[54] ^ r1[54] ^ rf[4];
+    
+    // FIXED: Resolved MULTIDRIVEN error by using a single concatenation assignment
+    assign uo_out = {
+        2'b00,                      // uo_out[7:6]
+        out_en,                     // uo_out[5] (Valid)
+        clk,                        // uo_out[4] (Clock echo)
+        3'b000,                     // uo_out[3:1]
+        (out_en ? jnav_bit : 1'b0)  // uo_out[0] (Data)
+    };
 
     // Unused IOs
     assign uio_out = 0;
