@@ -8,7 +8,7 @@
    **Vocabulary needed**:
    Built-in Self Test (BIST), Scan-chain?   
 6. Multi project tile
-     a. Encoder/Digital Block
-     b. Registers with Feedback
-     c. SRAM with peripherals (64 or 128 x 8) https://tinytapeout.com/chips/ttihp0p2/tt_um_urish_sram_test
-     d. Mux for selecting project
+* Encoder/Digital Block
+* Registers with Feedback
+* SRAM with peripherals (64 or 128 x 8) https://tinytapeout.com/chips/ttihp0p2/tt_um_urish_sram_test
+* Mux for selecting project
