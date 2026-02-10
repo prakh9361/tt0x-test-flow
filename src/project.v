@@ -75,7 +75,6 @@ module tt_um_navic_pilot_gen (
                 S_R0_INIT = 10'b0110111011;
                 S_R1_INIT = 10'b0100110000;
             end
-        case (prn_id) // This line is just a syntax fix placeholder, usually one case block
         endcase
     end
 
@@ -142,7 +141,7 @@ module tt_um_navic_pilot_gen (
         end else if (ena) begin
             // Primary Logic
             if (primary_reset_condition) begin
-                // Short Cycle Reset: Reload current ICs (allows dynamic PRN switching here)
+                // Short Cycle Reset: Reload current ICs
                 p_r0 <= P_R0_INIT;
                 p_r1 <= P_R1_INIT;
                 p_c  <= P_C_INIT;
