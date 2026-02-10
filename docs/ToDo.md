@@ -7,8 +7,4 @@
    What extra circuit and pins should be included for testable tapeout.
    **Vocabulary needed**:
    Built-in Self Test (BIST), Scan-chain?   
-6. Multi project tile
-* Encoder/Digital Block
-* Registers with Feedback
-* SRAM with peripherals (64 or 128 x 8) https://tinytapeout.com/chips/ttihp0p2/tt_um_urish_sram_test
-* Mux for selecting project
+
