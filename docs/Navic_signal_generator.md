@@ -13,7 +13,3 @@ The Module will be operate in 2 modes
 #Aim
 To generate the pilot signal of Navic . Also measure the cross correlation with other signals .
 
-#Test
-- Power usage
-- python clone
-- auto and cross correlatiion
